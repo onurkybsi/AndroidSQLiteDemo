@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteStatement;
 import android.graphics.Bitmap;
@@ -18,6 +19,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -36,11 +38,15 @@ public class PersonDetail extends AppCompatActivity {
     private EditText firstName, lastName, phoneNumber;
     private Button saveButton;
     private SQLiteDatabase db;
+    private String saveType;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_person_detail);
+
+        Intent intent = getIntent();
+        saveType = intent.getStringExtra("saveType");
 
         image = findViewById(R.id.image);
         firstName = findViewById(R.id.firstName);
@@ -50,6 +56,12 @@ public class PersonDetail extends AppCompatActivity {
         selectedImg = BitmapFactory.decodeResource(getResources(), R.drawable.default_person);
 
         db = this.openOrCreateDatabase("People", MODE_PRIVATE, null);
+
+        if (saveType.equals("update")) {
+            int editedId = intent.getIntExtra("id", 0);
+
+            fillTScreenValuesWithEditedPerson(editedId);
+        }
     }
 
     public void selectImage(View view) {
@@ -197,5 +209,47 @@ public class PersonDetail extends AppCompatActivity {
         }
 
         return true;
+    }
+
+    private void fillTScreenValuesWithEditedPerson(int editedId) {
+        Log.i("Edited id:", Integer.toString(editedId));
+
+        if (editedId != 0) {
+            Person editedPerson = getPerson(editedId);
+
+            firstName.setText(editedPerson.firstName);
+            lastName.setText(editedPerson.lastName);
+            phoneNumber.setText(editedPerson.phoneNumber);
+
+            Bitmap imgBitmap = BitmapFactory.decodeByteArray(editedPerson.imgByteArray, 0, editedPerson.imgByteArray.length);
+            image.setImageBitmap(imgBitmap);
+        }
+    }
+
+    private Person getPerson(int id) {
+        Person person = new Person();
+
+        try {
+
+            Cursor cursor = db.rawQuery("SELECT * FROM people WHERE Id = ?", new String[]{String.valueOf(id)});
+
+            int firstNameIx = cursor.getColumnIndex("FirstName");
+            int lastNameIx = cursor.getColumnIndex("LastName");
+            int phoneNumberIx = cursor.getColumnIndex("PhoneNumber");
+            int imgByteArrayIx = cursor.getColumnIndex("Image");
+
+            while (cursor.moveToNext()) {
+                person.firstName = cursor.getString(firstNameIx);
+                person.lastName = cursor.getString(lastNameIx);
+                person.phoneNumber = cursor.getString(phoneNumberIx);
+                person.imgByteArray = cursor.getBlob(imgByteArrayIx);
+            }
+
+            cursor.close();
+        } catch (Exception e) {
+            Log.e("getPerson", e.getMessage());
+        }
+
+        return person;
     }
 }
