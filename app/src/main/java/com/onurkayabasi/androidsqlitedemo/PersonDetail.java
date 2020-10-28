@@ -53,11 +53,13 @@ public class PersonDetail extends AppCompatActivity {
         lastName = findViewById(R.id.lastName);
         phoneNumber = findViewById(R.id.phoneNumber);
         saveButton = findViewById(R.id.saveButton);
-        selectedImg = BitmapFactory.decodeResource(getResources(), R.drawable.default_person);
+        selectedImg = saveType != null && saveType.equals("update")
+                ? null
+                : BitmapFactory.decodeResource(getResources(), R.drawable.default_person);
 
         db = this.openOrCreateDatabase("People", MODE_PRIVATE, null);
 
-        if (saveType.equals("update")) {
+        if (saveType != null && saveType.equals("update")) {
             int editedId = intent.getIntExtra("id", 0);
 
             fillTScreenValuesWithEditedPerson(editedId);
@@ -94,7 +96,7 @@ public class PersonDetail extends AppCompatActivity {
                     selectedImg = MediaStore.Images.Media.getBitmap(this.getContentResolver(), imgData);
                 } else {
                     ImageDecoder.Source source = ImageDecoder.createSource(this.getContentResolver(), imgData);
-                    selectedImg = ImageDecoder.decodeBitmap(source);
+                    selectedImg = fixBitmapSize(ImageDecoder.decodeBitmap(source), 1000);
                 }
 
                 image.setImageBitmap(selectedImg);
@@ -165,10 +167,8 @@ public class PersonDetail extends AppCompatActivity {
         person.lastName = lastNameText;
         person.phoneNumber = phoneNumberText;
 
-        Bitmap fixedImg = fixBitmapSize(selectedImg, 250);
-
         ByteArrayOutputStream selectedImgOutputStream = new ByteArrayOutputStream();
-        fixedImg.compress(Bitmap.CompressFormat.PNG, 50, selectedImgOutputStream);
+        selectedImg.compress(Bitmap.CompressFormat.PNG, 50, selectedImgOutputStream);
         byte[] selectedImgByteArray = selectedImgOutputStream.toByteArray();
 
         person.imgByteArray = selectedImgByteArray;
@@ -185,7 +185,9 @@ public class PersonDetail extends AppCompatActivity {
             db.execSQL("CREATE TABLE IF NOT EXISTS People (Id INTEGER PRIMARY KEY,FirstName VARCHAR, LastName VARCHAR, PhoneNumber VARCHAR, Image BLOB)");
 
 
-            String sqlString = "INSERT INTO People (FirstName, LastName, PhoneNumber, Image) VALUES (?, ?, ?, ?)";
+            String sqlString = saveType != null && saveType.equals("update")
+                    ? "UPDATE People SET FirstName = ?, LastName = ?, PhoneNumber = ?, Image = ?"
+                    : "INSERT INTO People (FirstName, LastName, PhoneNumber, Image) VALUES (?, ?, ?, ?)";
 
             SQLiteStatement sqLiteStatement = db.compileStatement(sqlString);
             sqLiteStatement.bindString(1, person.firstName);
@@ -222,6 +224,7 @@ public class PersonDetail extends AppCompatActivity {
             phoneNumber.setText(editedPerson.phoneNumber);
 
             Bitmap imgBitmap = BitmapFactory.decodeByteArray(editedPerson.imgByteArray, 0, editedPerson.imgByteArray.length);
+            selectedImg = imgBitmap;
             image.setImageBitmap(imgBitmap);
         }
     }
